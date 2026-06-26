@@ -23952,6 +23952,20 @@ TEST(ScriptSourceURLAndSourceMappingURL) {
       "function foo() {}\n"
       "//# sourceMappingURL=  data:application/json,{\"version\":3}  \n",
       nullptr, "data:application/json,{\"version\":3}");
+
+  constexpr size_t kMaxMagicCommentValueLength = 16 * v8::internal::MB;
+  std::string large_source_mapping_url = "data:application/json;base64,";
+  large_source_mapping_url.append(
+      kMaxMagicCommentValueLength - large_source_mapping_url.length(), 'a');
+  std::string source_text =
+      "function foo() {}\n//# sourceMappingURL=" + large_source_mapping_url;
+  SourceURLHelper(isolate, source_text.c_str(), nullptr,
+                  large_source_mapping_url.c_str());
+
+  large_source_mapping_url.push_back('a');
+  source_text =
+      "function foo() {}\n//# sourceMappingURL=" + large_source_mapping_url;
+  SourceURLHelper(isolate, source_text.c_str(), nullptr, nullptr);
 }
 
 

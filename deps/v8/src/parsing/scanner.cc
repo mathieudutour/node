@@ -252,6 +252,11 @@ Token::Value Scanner::SkipMagicComment(base::uc32 hash_or_at_sign) {
 
 namespace {
 
+// Magic comment values are stored on Script objects. Extremely large values,
+// such as inline source maps, can otherwise exhaust a constrained isolate while
+// the scanner internalizes them.
+constexpr int kMaxMagicCommentValueLength = 16 * MB;
+
 void ProcessPerFunctionCompileHints(const base::Vector<const uint8_t>& data,
                                     int current_position,
                                     std::vector<int>& positions) {
@@ -322,13 +327,22 @@ void Scanner::TryToParseMagicComment(base::uc32 hash_or_at_sign) {
   while (IsWhiteSpace(c0_)) {
     Advance();
   }
+  bool value_too_long = false;
   while (c0_ != kEndOfInput && !unibrow::IsLineTerminator(c0_)) {
     if (IsWhiteSpace(c0_)) {
       break;
     }
-    value->AddChar(c0_);
+    if (!value_too_long) {
+      if (value->length() < kMaxMagicCommentValueLength) {
+        value->AddChar(c0_);
+      } else {
+        value->Start();
+        value_too_long = true;
+      }
+    }
     Advance();
   }
+  if (value_too_long) return;
   // Allow whitespace at the end.
   while (c0_ != kEndOfInput && !unibrow::IsLineTerminator(c0_)) {
     if (!IsWhiteSpace(c0_)) {
